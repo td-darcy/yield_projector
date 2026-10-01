@@ -43,9 +43,11 @@
   /* route rows */
   .list{display:flex;flex-direction:column;gap:12px}
   .row{border:1px solid var(--line);border-radius:8px;padding:14px 16px;display:grid;gap:12px 16px;
-       grid-template-columns:30px minmax(200px,1.3fr) 150px 120px minmax(190px,1fr) 100px;align-items:center}
+       grid-template-columns:30px minmax(200px,1.3fr) 150px 140px minmax(190px,1fr) 100px;align-items:center}
   .row.sm{background:var(--soft)}
   .row .n{width:28px;height:28px;border-radius:50%;background:var(--accent);color:#fff;font-size:12.5px;font-weight:600;display:grid;place-items:center}
+  .nw{white-space:nowrap}
+  sup{line-height:0;font-size:.75em}
   .stack{display:flex;flex-direction:column;gap:7px}
   .tag{font-size:12.5px;font-weight:600;color:var(--accent)}
   .struct{height:100px;border:1px solid var(--line);border-radius:6px;background:#fff;display:grid;place-items:center;overflow:hidden}
@@ -61,7 +63,7 @@
   .out b{display:block;font:600 15px var(--mono);color:var(--ink)}
   .conv{grid-column:2 / -1;display:flex;gap:8px;align-items:center;font-size:13px;color:var(--muted);cursor:pointer}
   .conv input{accent-color:var(--accent)}
-  .bb{grid-column:2 / -1;display:none;grid-template-columns:minmax(200px,1.3fr) 150px 120px 90px minmax(100px,1fr);gap:12px 16px;align-items:center;
+  .bb{grid-column:2 / -1;display:none;grid-template-columns:minmax(200px,1.3fr) 150px 140px 90px minmax(100px,1fr);gap:12px 16px;align-items:center;
       padding:12px;border-radius:6px;background:var(--soft);border:1px dashed #cdd4dc}
   .bb.show{display:grid}
   @media(max-width:900px){
@@ -218,7 +220,7 @@ function buildRows(){
     <div class="stack"><div class="tag">Starting material (input)</div><input type="text" data-k="smname" value="${esc(sm.name)}" aria-label="Starting material name">
       <input type="text" data-k="smsmiles" placeholder="SMILES" value="${esc(sm.smiles)}" aria-label="Starting material SMILES"></div>
     <div class="struct" id="st-sm"></div>
-    <label class="f">MW (g mol<sup>-1</sup>)<input type="number" step="any" min="0" id="mw-sm" data-k="smmw" value="${sm.mw??''}"></label>
+    <label class="f"><span class="nw">MW (g mol<sup>-1</sup>)</span><input type="number" step="any" min="0" id="mw-sm" data-k="smmw" value="${sm.mw??''}"></label>
     <label class="f">Amount of starting material
       <div style="display:flex;gap:6px"><input type="number" step="any" min="0" data-k="smmass" value="${sm.mass}" style="flex:1">
       <select data-k="smunit" style="width:68px"><option>mg</option><option>g</option><option>kg</option></select></div></label>
@@ -231,7 +233,7 @@ function buildRows(){
       <div class="stack"><div class="tag">Step ${i+1}: product</div><input type="text" data-i="${i}" data-f="name" placeholder="Name of the product of step ${i+1}" value="${esc(s.name)}" aria-label="Step ${i+1} name">
         <input type="text" data-i="${i}" data-f="smiles" placeholder="SMILES of the step ${i+1} product" value="${esc(s.smiles)}" aria-label="Step ${i+1} product SMILES"></div>
       <div class="struct" id="st-s${i}"></div>
-      <label class="f">MW (g mol<sup>-1</sup>)<input type="number" step="any" min="0" id="mw-s${i}" data-i="${i}" data-f="mw" value="${s.mw??''}"></label>
+      <label class="f"><span class="nw">MW (g mol<sup>-1</sup>)</span><input type="number" step="any" min="0" id="mw-s${i}" data-i="${i}" data-f="mw" value="${s.mw??''}"></label>
       <label class="f">Yield of step ${i+1}
         <div class="yld"><input type="range" min="0" max="100" step="1" value="${s.yield}" data-i="${i}" data-f="yield" aria-label="Step ${i+1} yield">
         <div class="pct"><input type="number" min="0" max="100" step="0.1" value="${s.yield}" data-i="${i}" data-f="yieldnum" aria-label="Step ${i+1} yield %"></div></div></label>
@@ -241,7 +243,7 @@ function buildRows(){
         <div class="stack"><input type="text" data-i="${i}" data-f="bbName" placeholder="Building block name" value="${esc(s.bbName)}">
           <input type="text" data-i="${i}" data-f="bbSmiles" placeholder="Building block SMILES" value="${esc(s.bbSmiles)}"></div>
         <div class="struct" id="st-b${i}"></div>
-        <label class="f">MW (g mol<sup>-1</sup>)<input type="number" step="any" min="0" id="mw-b${i}" data-i="${i}" data-f="bbMw" value="${s.bbMw??''}"></label>
+        <label class="f"><span class="nw">MW (g mol<sup>-1</sup>)</span><input type="number" step="any" min="0" id="mw-b${i}" data-i="${i}" data-f="bbMw" value="${s.bbMw??''}"></label>
         <label class="f">Equiv.<input type="number" step="any" min="0" data-i="${i}" data-f="bbEq" value="${s.bbEq}"></label>
         <div class="out">Mass needed<b id="bm-${i}">–</b></div>
       </div>`;
@@ -281,7 +283,7 @@ function renderReport(c){
     <tr class="tot"><td colspan="4" class="lab">Final mass: ${esc(last.name)}</td><td>${fmtM(c.finalMass)}</td></tr>
     <tr class="tot"><td colspan="4" class="lab">Theoretical mass (100% yield)</td><td>${fmtM(c.theo)}</td></tr>`;
   $('#report').innerHTML=`<h3>${esc(state.title)}</h3><div class="sub">${state.steps.length}-step route · ${date}</div>
-    <table class="rep"><thead><tr><th>Step</th><th>Product</th><th>MW (g mol<sup>-1</sup>)</th><th>Yield</th><th>Mass (${U()})</th></tr></thead><tbody>${rows}</tbody></table>`;
+    <table class="rep"><thead><tr><th>Step</th><th>Product</th><th><span class="nw">MW (g mol<sup>-1</sup>)</span></th><th>Yield</th><th>Mass (${U()})</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 
 /* ---------- events ---------- */
