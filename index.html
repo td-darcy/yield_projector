@@ -280,8 +280,7 @@ function renderReport(c){
     if(s.conv) rows+=`<tr class="bbrow"><td></td><td>+ ${esc(s.bbName||'building block')} (${s.bbEq} equiv)</td><td>${mwF(s.bbMw)}</td><td></td><td>${fmtM(c.rows[i].bbMass)}</td></tr>`;
   });
   rows+=`<tr class="tot"><td colspan="3" class="lab">Overall yield (${state.steps.length} steps)</td><td>${fmtY(c.overall)}</td><td></td></tr>
-    <tr class="tot"><td colspan="4" class="lab">Final mass: ${esc(last.name)}</td><td>${fmtM(c.finalMass)}</td></tr>
-    <tr class="tot"><td colspan="4" class="lab">Theoretical mass (100% yield)</td><td>${fmtM(c.theo)}</td></tr>`;
+    <tr class="tot"><td colspan="4" class="lab">Final mass: ${esc(last.name)}</td><td>${fmtM(c.finalMass)}</td></tr>`;
   $('#report').innerHTML=`<h3>${esc(state.title)}</h3><div class="sub">${state.steps.length}-step route · ${date}</div>
     <table class="rep"><thead><tr><th>Step</th><th>Product</th><th><span class="nw">MW (g mol<sup>-1</sup>)</span></th><th>Yield</th><th>Mass (${U()})</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
@@ -401,8 +400,6 @@ $('#dlXlsx').addEventListener('click',async()=>{
   const lastOk=c.finalMass!=null;
   total(`Final mass: ${last.name}`,'D',5,lastOk?(prevOkFormula()?{formula:`E${lastMain}`,result:c.finalMass}:c.finalMass):'–','#,##0.00#');
   function prevOkFormula(){ return typeof ws.getRow(lastMain).getCell(5).value==='object'; }
-  total('Theoretical mass (100% yield)','D',5,
-    c.theo!=null&&smOk&&last.mw>0?{formula:`E${smR}/C${smR}*C${lastMain}`,result:c.theo}:'–','#,##0.00#');
   ws.pageSetup={orientation:'portrait',fitToPage:true,fitToWidth:1,fitToHeight:0};
   const buf=await wb.xlsx.writeBuffer();
   const a=document.createElement('a');
