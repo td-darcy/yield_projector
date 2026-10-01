@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Route yield projector</title>
+<style>
+  :root{
+    --ink:#1d2430; --muted:#6a7482; --line:#e1e5ea; --soft:#f5f7f9; --accent:#1f4e8c; --accent-soft:#e8eff8;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI","Helvetica Neue",Helvetica,Arial,sans-serif;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;color:var(--ink);background:#fff;font:15px/1.55 var(--sans)}
+  nav{display:flex;align-items:center;gap:26px;padding:14px 32px;border-bottom:1px solid var(--line);position:sticky;top:0;background:rgba(255,255,255,.96);z-index:5}
+  nav .brand{font-weight:600;font-size:17px;color:var(--ink);text-decoration:none;margin-right:auto}
+  nav .brand span{color:var(--accent);margin-right:6px}
+  nav a{color:var(--muted);text-decoration:none;font-size:14px}
+  nav a:hover{color:var(--accent)}
+  #status{font-size:12px;color:var(--muted)}
+  main{max-width:1080px;margin:0 auto;padding:0 24px 80px}
+  .hero{padding:48px 0 26px}
+  .hero p.kicker{margin:0 0 6px;color:var(--accent);font-size:13px;font-weight:600;letter-spacing:.3px}
+  .hero h1{margin:0;font-size:38px;line-height:1.15;font-weight:600;letter-spacing:-.5px}
+  .hero p.lead{margin:12px 0 0;color:var(--muted);max-width:640px;font-size:16px}
+  h2{font-size:22px;font-weight:600;margin:46px 0 6px;letter-spacing:-.2px}
+  p.sec{margin:0 0 16px;color:var(--muted)}
+  input[type=text],input[type=number],select{font:14px var(--sans);color:var(--ink);background:#fff;border:1px solid #cdd4dc;border-radius:6px;padding:7px 9px;width:100%;min-width:0}
+  input[type=number]{font-family:var(--mono);font-size:13px}
+  input:focus,select:focus,button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+  label.f{display:flex;flex-direction:column;gap:4px;font-size:12.5px;color:var(--muted)}
+  button.btn{font:500 14px var(--sans);padding:9px 18px;border-radius:6px;border:1px solid var(--accent);background:var(--accent);color:#fff;cursor:pointer}
+  button.btn:hover{background:#173d70}
+  button.btn.ghost{background:#fff;color:var(--accent)}
+  button.btn.ghost:hover{background:var(--accent-soft)}
+  .setup{display:flex;flex-wrap:wrap;gap:20px;align-items:flex-end}
+  .results{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-top:20px}
+  .stat{border:1px solid var(--line);border-radius:8px;padding:14px 18px;background:var(--soft)}
+  .stat.key{background:var(--accent-soft);border-color:#c5d6ec}
+  .stat span{font-size:13px;color:var(--muted)}
+  .stat b{display:block;font-size:28px;font-weight:600;margin-top:2px;color:var(--ink)}
+  .stat small{color:var(--muted);font-size:12.5px}
+  /* route rows */
+  .list{display:flex;flex-direction:column;gap:12px}
+  .row{border:1px solid var(--line);border-radius:8px;padding:14px 16px;display:grid;gap:12px 16px;
+       grid-template-columns:30px minmax(200px,1.3fr) 150px 120px minmax(190px,1fr) 100px;align-items:center}
+  .row.sm{background:var(--soft)}
+  .row .n{width:28px;height:28px;border-radius:50%;background:var(--accent);color:#fff;font-size:12.5px;font-weight:600;display:grid;place-items:center}
+  .stack{display:flex;flex-direction:column;gap:7px}
+  .tag{font-size:12.5px;font-weight:600;color:var(--accent)}
+  .struct{height:100px;border:1px solid var(--line);border-radius:6px;background:#fff;display:grid;place-items:center;overflow:hidden}
+  .struct svg{width:100%;height:100%}
+  .struct em{font-style:normal;font-size:12px;color:#97a0ab;text-align:center;padding:0 6px}
+  .struct.bad em{color:#b3261e}
+  .yld{display:grid;grid-template-columns:1fr 74px;gap:10px;align-items:center}
+  .yld .pct{position:relative}
+  .yld .pct input{padding-right:20px;text-align:right}
+  .yld .pct::after{content:"%";position:absolute;right:8px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:12px}
+  input[type=range]{width:100%;accent-color:var(--accent)}
+  .out{text-align:right;font-size:12.5px;color:var(--muted)}
+  .out b{display:block;font:600 15px var(--mono);color:var(--ink)}
+  .conv{grid-column:2 / -1;display:flex;gap:8px;align-items:center;font-size:13px;color:var(--muted);cursor:pointer}
+  .conv input{accent-color:var(--accent)}
+  .bb{grid-column:2 / -1;display:none;grid-template-columns:minmax(200px,1.3fr) 150px 120px 90px minmax(100px,1fr);gap:12px 16px;align-items:center;
+      padding:12px;border-radius:6px;background:var(--soft);border:1px dashed #cdd4dc}
+  .bb.show{display:grid}
+  @media(max-width:900px){
+    .row{grid-template-columns:30px 1fr}
+    .row > *:not(.n){grid-column:2}
+    .bb{grid-template-columns:1fr 1fr}
+    .out{text-align:left}
+  }
+  /* report */
+  #report{border:1px solid var(--line);border-radius:8px;padding:26px 28px;overflow-x:auto;background:#fff}
+  #report h3{margin:0;font-size:21px;font-weight:600;color:var(--accent)}
+  #report .sub{color:var(--muted);font-size:13px;margin:2px 0 16px}
+  table.rep{border-collapse:collapse;width:100%;font-size:14px}
+  table.rep th{background:var(--accent);color:#fff;font-weight:600;padding:10px;text-align:center}
+  table.rep th:nth-child(2){text-align:left}
+  table.rep td{padding:9px 10px;border-bottom:1px solid var(--line);text-align:center}
+  table.rep td:nth-child(2){text-align:left}
+  table.rep tr.bbrow td{color:var(--muted);font-size:13px;background:#fff}
+  table.rep tr.tot td{background:var(--accent-soft);font-weight:600;color:var(--accent);border-top:1px solid #c5d6ec}
+  table.rep tr.tot td.lab{text-align:right}
+  .actions{display:flex;gap:10px;margin-top:16px;flex-wrap:wrap}
+  .note{color:var(--muted);font-size:13px;margin-top:14px;max-width:760px}
+  footer{border-top:1px solid var(--line);padding:22px 32px;color:var(--muted);font-size:13px}
+</style>
+</head>
+<body>
+<nav>
+  <a class="brand" href="#top"><span>⬡</span>Route yield projector</a>
+  <a href="#route">Route</a>
+  <a href="#report-sec">Report</a>
+  <span id="status">Structures: loading</span>
+</nav>
+
+<main id="top">
+  <section class="hero">
+    <h1>Yield Projector Tool</h1>
+    <p class="lead">Enter the starting material and its amount, set the yield of each step, and see the overall yield and the mass of final product.</p>
+  </section>
+
+  <div class="setup">
+    <label class="f" style="flex:1;min-width:240px">Project title
+      <input type="text" id="title">
+    </label>
+    <label class="f" style="width:120px">Number of steps
+      <input type="number" id="nsteps" min="1" max="20">
+    </label>
+    <button class="btn ghost" id="clearAll">Start over</button>
+  </div>
+
+  <div class="results">
+    <div class="stat key"><span>Overall yield</span><b id="kYield">–</b><small id="kYieldSub"></small></div>
+    <div class="stat"><span>Final mass</span><b id="kMass">–</b><small id="kMassSub"></small></div>
+    <div class="stat"><span>Theoretical mass (100% yield)</span><b id="kTheo">–</b><small></small></div>
+  </div>
+
+
+  <h2 id="route">Route</h2>
+  <p class="sec">The first row is the starting material (SM). Each numbered row after it is one reaction step and describes the product of that step: enter that product's SMILES and MW, not the SM's. The yield is the yield of that step. Paste a SMILES to draw the structure and fill in the MW, or type the MW directly.</p>
+  <div class="list" id="steps"></div>
+
+  <h2 id="report-sec">Report</h2>
+  <p class="sec">Download as Excel, or as an image for slides.</p>
+  <div id="report"></div>
+  <div class="actions">
+    <button class="btn" id="dlXlsx">Download Excel report</button>
+    <button class="btn ghost" id="dlPng">Download as image (PNG)</button>
+  </div>
+  <p class="note">Each step's yield is applied to the moles of the main-line intermediate, and mass is moles × molecular weight. For a convergent step, enter the yield of the coupling step; the building block mass is equivalents × moles of the preceding intermediate.</p>
+</main>
+<footer>Runs entirely in your browser. Nothing you enter is sent anywhere.</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@rdkit/rdkit/dist/RDKit_minimal.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script>
+(function(){
+const $ = s => document.querySelector(s);
+const KEY = 'yield-projector-v4';
+const RDKIT_BASE = 'https://cdn.jsdelivr.net/npm/@rdkit/rdkit/dist/';
+let RDK = null;
+
+function newStep(i){ return {name:'Intermediate '+(i+1), smiles:'', mw:null, yield:80, conv:false, bbName:'', bbSmiles:'', bbMw:null, bbEq:1}; }
+function defaults(){ return {title:'Route yield projection',   sm:{name:'Starting material', smiles:'', mw:null, mass:10, unit:'g'},
+  steps:Array.from({length:8},(_,i)=>newStep(i))}; }
+function load(){ try{ const s=JSON.parse(localStorage.getItem(KEY)); if(s&&s.steps&&s.steps.length&&s.sm) return s; }catch(e){} return null; }
+function save(){ try{ localStorage.setItem(KEY, JSON.stringify(state)); }catch(e){} }
+let state = load() || defaults();
+
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const numOrNull=v=>{ const x=parseFloat(v); return isNaN(x)?null:x; };
+const fmtY=v=>v.toFixed(1)+'%';
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function fmtN(v){ if(v==null||!isFinite(v)) return '–'; const a=Math.abs(v); return a>=100?v.toFixed(1):a>=10?v.toFixed(2):v.toFixed(3); }
+const U=()=>state.sm.unit;
+const fmtM=v=>v==null?'–':fmtN(v)+' '+U();
+
+/* ---------- calculation ---------- */
+function calc(){
+  const sm=state.sm;
+  let mol=(sm.mw>0&&sm.mass>0)?sm.mass/sm.mw:null; const mol0=mol;
+  let y=1; const rows=[];
+  state.steps.forEach(s=>{
+    const prev=mol; y*=s.yield/100;
+    if(mol!=null) mol*=s.yield/100;
+    rows.push({mass:(mol!=null&&s.mw>0)?mol*s.mw:null,
+               bbMass:(prev!=null&&s.conv&&s.bbMw>0)?prev*(s.bbEq||0)*s.bbMw:null});
+  });
+  const last=state.steps[state.steps.length-1];
+  const finalMass=rows[rows.length-1].mass;
+  const theo=(mol0!=null&&last.mw>0)?mol0*last.mw:null;
+  return {rows, overall:y*100, finalMass, theo};
+}
+
+/* ---------- RDKit ---------- */
+function setStatus(t){ $('#status').textContent='Structures: '+t; }
+if(window.initRDKitModule){
+  initRDKitModule({locateFile:f=>RDKIT_BASE+f}).then(m=>{ RDK=m; setStatus('ready'); redrawAll(); })
+    .catch(()=>setStatus('unavailable'));
+} else setStatus('unavailable');
+
+function getMw(id){ if(id==='sm') return state.sm.mw; const i=+id.slice(1); return id[0]==='s'?state.steps[i].mw:state.steps[i].bbMw; }
+function setMw(id,v){
+  v=Math.round(v*100)/100;
+  if(id==='sm') state.sm.mw=v; else { const i=+id.slice(1); if(id[0]==='s') state.steps[i].mw=v; else state.steps[i].bbMw=v; }
+  const el=document.getElementById('mw-'+id); if(el) el.value=v;
+}
+function show(id,html,bad){ const el=document.getElementById('st-'+id); if(!el) return; el.innerHTML=html; el.classList.toggle('bad',!!bad); }
+function drawStruct(id,smi,fillMw){
+  smi=(smi||'').trim();
+  if(!smi){ show(id,'<em>Paste a SMILES</em>'); return; }
+  if(!RDK){ show(id,'<em>Loading…</em>'); return; }
+  let svg=null, mw=null;
+  try{ const mol=RDK.get_mol(smi);
+    if(mol){ if(mol.is_valid()){ svg=mol.get_svg(300,200);
+        try{ const d=JSON.parse(mol.get_descriptors()); mw=d.amw||d.exactmw||null; }catch(e){} }
+      mol.delete(); } }catch(e){}
+  if(!svg){ show(id,'<em>Invalid SMILES</em>',true); return; }
+  show(id,svg);
+  if(mw && (fillMw || getMw(id)==null)){ setMw(id,mw); update(); }
+}
+const timers={};
+function drawLater(id,smi){ clearTimeout(timers[id]); timers[id]=setTimeout(()=>drawStruct(id,smi,true),300); }
+function redrawAll(){
+  drawStruct('sm',state.sm.smiles,false);
+  state.steps.forEach((s,i)=>{ drawStruct('s'+i,s.smiles,false); if(s.conv) drawStruct('b'+i,s.bbSmiles,false); });
+}
+
+/* ---------- build route rows ---------- */
+function buildRows(){
+  const host=$('#steps'); host.innerHTML='';
+  const sm=state.sm;
+  const r0=document.createElement('div'); r0.className='row sm';
+  r0.innerHTML=`<div class="n">SM</div>
+    <div class="stack"><div class="tag">Starting material (input)</div><input type="text" data-k="smname" value="${esc(sm.name)}" aria-label="Starting material name">
+      <input type="text" data-k="smsmiles" placeholder="SMILES" value="${esc(sm.smiles)}" aria-label="Starting material SMILES"></div>
+    <div class="struct" id="st-sm"></div>
+    <label class="f">MW (g mol<sup>-1</sup>)<input type="number" step="any" min="0" id="mw-sm" data-k="smmw" value="${sm.mw??''}"></label>
+    <label class="f">Amount of starting material
+      <div style="display:flex;gap:6px"><input type="number" step="any" min="0" data-k="smmass" value="${sm.mass}" style="flex:1">
+      <select data-k="smunit" style="width:68px"><option>mg</option><option>g</option><option>kg</option></select></div></label>
+    <div></div>`;
+  host.appendChild(r0);
+  r0.querySelector('select').value=sm.unit;
+  state.steps.forEach((s,i)=>{
+    const d=document.createElement('div'); d.className='row';
+    d.innerHTML=`<div class="n">${i+1}</div>
+      <div class="stack"><div class="tag">Step ${i+1}: product</div><input type="text" data-i="${i}" data-f="name" placeholder="Name of the product of step ${i+1}" value="${esc(s.name)}" aria-label="Step ${i+1} name">
+        <input type="text" data-i="${i}" data-f="smiles" placeholder="SMILES of the step ${i+1} product" value="${esc(s.smiles)}" aria-label="Step ${i+1} product SMILES"></div>
+      <div class="struct" id="st-s${i}"></div>
+      <label class="f">MW (g mol<sup>-1</sup>)<input type="number" step="any" min="0" id="mw-s${i}" data-i="${i}" data-f="mw" value="${s.mw??''}"></label>
+      <label class="f">Yield of step ${i+1}
+        <div class="yld"><input type="range" min="0" max="100" step="1" value="${s.yield}" data-i="${i}" data-f="yield" aria-label="Step ${i+1} yield">
+        <div class="pct"><input type="number" min="0" max="100" step="0.1" value="${s.yield}" data-i="${i}" data-f="yieldnum" aria-label="Step ${i+1} yield %"></div></div></label>
+      <div class="out">Mass out<b id="mo-${i}">–</b></div>
+      <label class="conv"><input type="checkbox" data-i="${i}" data-f="conv" ${s.conv?'checked':''}> Convergent step (couples a building block)</label>
+      <div class="bb ${s.conv?'show':''}" id="bb-${i}">
+        <div class="stack"><input type="text" data-i="${i}" data-f="bbName" placeholder="Building block name" value="${esc(s.bbName)}">
+          <input type="text" data-i="${i}" data-f="bbSmiles" placeholder="Building block SMILES" value="${esc(s.bbSmiles)}"></div>
+        <div class="struct" id="st-b${i}"></div>
+        <label class="f">MW (g mol<sup>-1</sup>)<input type="number" step="any" min="0" id="mw-b${i}" data-i="${i}" data-f="bbMw" value="${s.bbMw??''}"></label>
+        <label class="f">Equiv.<input type="number" step="any" min="0" data-i="${i}" data-f="bbEq" value="${s.bbEq}"></label>
+        <div class="out">Mass needed<b id="bm-${i}">–</b></div>
+      </div>`;
+    host.appendChild(d);
+  });
+  redrawAll(); update();
+}
+
+/* ---------- update ---------- */
+function update(){
+  const c=calc();
+  state.steps.forEach((s,i)=>{
+    const mo=$('#mo-'+i), bm=$('#bm-'+i);
+    if(mo) mo.textContent=fmtM(c.rows[i].mass);
+    if(bm) bm.textContent=fmtM(c.rows[i].bbMass);
+  });
+  $('#kYield').textContent=fmtY(c.overall);
+  $('#kYieldSub').textContent=state.steps.length+' steps';
+  $('#kMass').textContent=fmtM(c.finalMass);
+  $('#kMassSub').textContent=c.finalMass==null?'Enter MW and amount for the starting material and each intermediate':'from '+fmtN(state.sm.mass)+' '+U()+' of '+state.sm.name;
+  $('#kTheo').textContent=fmtM(c.theo);
+  renderReport(c); save();
+}
+
+/* ---------- report ---------- */
+function renderReport(c){
+  c=c||calc();
+  const date=new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'});
+  const last=state.steps[state.steps.length-1];
+  const mwF=v=>v>0?v.toFixed(2):'–';
+  let rows=`<tr><td>SM</td><td>${esc(state.sm.name)}</td><td>${mwF(state.sm.mw)}</td><td></td><td>${fmtM(state.sm.mass>0?state.sm.mass:null)}</td></tr>`;
+  state.steps.forEach((s,i)=>{
+    rows+=`<tr><td>${i+1}</td><td>${esc(s.name)}</td><td>${mwF(s.mw)}</td><td>${fmtY(s.yield)}</td><td>${fmtM(c.rows[i].mass)}</td></tr>`;
+    if(s.conv) rows+=`<tr class="bbrow"><td></td><td>+ ${esc(s.bbName||'building block')} (${s.bbEq} equiv)</td><td>${mwF(s.bbMw)}</td><td></td><td>${fmtM(c.rows[i].bbMass)}</td></tr>`;
+  });
+  rows+=`<tr class="tot"><td colspan="3" class="lab">Overall yield (${state.steps.length} steps)</td><td>${fmtY(c.overall)}</td><td></td></tr>
+    <tr class="tot"><td colspan="4" class="lab">Final mass: ${esc(last.name)}</td><td>${fmtM(c.finalMass)}</td></tr>
+    <tr class="tot"><td colspan="4" class="lab">Theoretical mass (100% yield)</td><td>${fmtM(c.theo)}</td></tr>`;
+  $('#report').innerHTML=`<h3>${esc(state.title)}</h3><div class="sub">${state.steps.length}-step route · ${date}</div>
+    <table class="rep"><thead><tr><th>Step</th><th>Product</th><th>MW (g mol<sup>-1</sup>)</th><th>Yield</th><th>Mass (${U()})</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+/* ---------- events ---------- */
+$('#steps').addEventListener('input',e=>{
+  const t=e.target, k=t.dataset.k;
+  if(k){
+    if(k==='smname') state.sm.name=t.value;
+    else if(k==='smsmiles'){ state.sm.smiles=t.value; drawLater('sm',t.value); }
+    else if(k==='smmw') state.sm.mw=numOrNull(t.value);
+    else if(k==='smmass') state.sm.mass=numOrNull(t.value)||0;
+    else if(k==='smunit') state.sm.unit=t.value;
+    update(); return;
+  }
+  const i=+t.dataset.i, f=t.dataset.f; if(isNaN(i)) return;
+  const s=state.steps[i], row=t.closest('.row');
+  if(f==='yield'||f==='yieldnum'){
+    s.yield=clamp(parseFloat(t.value)||0,0,100);
+    const r=row.querySelector('input[type=range]'), n=row.querySelector('.pct input');
+    if(f==='yield') n.value=s.yield; else r.value=s.yield;
+  }
+  else if(f==='conv'){ s.conv=t.checked; $('#bb-'+i).classList.toggle('show',s.conv); if(s.conv) drawStruct('b'+i,s.bbSmiles,false); }
+  else if(f==='mw'||f==='bbMw') s[f]=numOrNull(t.value);
+  else if(f==='bbEq') s.bbEq=numOrNull(t.value)||0;
+  else { s[f]=t.value; if(f==='smiles') drawLater('s'+i,t.value); if(f==='bbSmiles') drawLater('b'+i,t.value); }
+  update();
+});
+$('#title').addEventListener('input',e=>{ state.title=e.target.value; update(); });
+$('#nsteps').addEventListener('change',e=>{
+  const n=clamp(parseInt(e.target.value)||1,1,20); e.target.value=n;
+  while(state.steps.length<n) state.steps.push(newStep(state.steps.length));
+  state.steps.length=n; buildRows();
+});
+$('#clearAll').addEventListener('click',()=>{ if(confirm('Clear everything and start over?')){ state=defaults(); init(); } });
+
+/* ---------- PNG ---------- */
+function safeName(){ return (state.title||'yield-projection').replace(/[^\w\-]+/g,'_'); }
+$('#dlPng').addEventListener('click',async()=>{
+  if(!window.html2canvas){ alert('Image export library did not load. Check your connection.'); return; }
+  const cv=await html2canvas($('#report'),{scale:2,backgroundColor:'#ffffff'});
+  const a=document.createElement('a'); a.download=safeName()+'.png'; a.href=cv.toDataURL('image/png'); a.click();
+});
+
+/* ---------- Excel ---------- */
+$('#dlXlsx').addEventListener('click',async()=>{
+  if(!window.ExcelJS){ alert('Excel library did not load. Check your connection.'); return; }
+  const c=calc(), n=state.steps.length, un=U();
+  const wb=new ExcelJS.Workbook();
+  const ws=wb.addWorksheet('Yield projection',{views:[{showGridLines:false}]});
+  ws.columns=[{width:8},{width:44},{width:18},{width:12},{width:18}];
+  const navy='FF1F4E8C', soft='FFE8EFF8', band='FFF5F7F9';
+  const thin={style:'thin',color:{argb:'FFE1E5EA'}};
+  const border={top:thin,bottom:thin,left:thin,right:thin};
+  const font=(o={})=>Object.assign({name:'Calibri',size:11,color:{argb:'FF1D2430'}},o);
+
+  ws.mergeCells('A1:E1'); const t=ws.getCell('A1'); t.value=state.title;
+  t.font=font({size:18,bold:true,color:{argb:navy}}); t.alignment={vertical:'middle'}; ws.getRow(1).height=32;
+  ws.mergeCells('A2:E2'); const sub=ws.getCell('A2');
+  sub.value=n+'-step route · '+new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'});
+  sub.font=font({color:{argb:'FF6A7482'}});
+
+  const H=4, heads=['Step','Product','MW (g/mol)','Yield','Mass ('+un+')'];
+  const hr=ws.getRow(H); hr.height=28;
+  heads.forEach((h,i)=>{ const cell=hr.getCell(i+1); cell.value=h;
+    cell.font=font({bold:true,color:{argb:'FFFFFFFF'}});
+    cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:navy}};
+    cell.alignment={horizontal:i===1?'left':'center',vertical:'middle'}; cell.border=border; });
+
+  let rr=H+1; const smR=rr, bodyStart=rr;
+  const smOk=state.sm.mw>0&&state.sm.mass>0;
+  const put=(r,col,val)=>{ ws.getRow(r).getCell(col).value=val; };
+  put(rr,1,'SM'); put(rr,2,state.sm.name);
+  put(rr,3,state.sm.mw>0?state.sm.mw:'–'); put(rr,5,state.sm.mass>0?state.sm.mass:'–');
+  let prevMain=smR, prevOk=smOk, lastMain=smR;
+  state.steps.forEach((s,i)=>{
+    rr++; const r=rr;
+    put(r,1,i+1); put(r,2,s.name); put(r,3,s.mw>0?s.mw:'–'); put(r,4,s.yield/100);
+    const m=c.rows[i].mass;
+    if(m==null) put(r,5,'–');
+    else if(prevOk && s.mw>0) put(r,5,{formula:`E${prevMain}/C${prevMain}*C${r}*D${r}`,result:m});
+    else put(r,5,m);
+    if(s.conv){
+      rr++; const b=rr;
+      put(b,2,`+ ${s.bbName||'building block'} (${s.bbEq} equiv)`); put(b,3,s.bbMw>0?s.bbMw:'–');
+      const bm=c.rows[i].bbMass;
+      if(bm==null) put(b,5,'–');
+      else if(prevOk && s.bbMw>0) put(b,5,{formula:`E${prevMain}/C${prevMain}*${s.bbEq}*C${b}`,result:bm});
+      else put(b,5,bm);
+      ws.getRow(b).getCell(2).font=font({italic:true,color:{argb:'FF6A7482'}});
+    }
+    prevMain=r; lastMain=r; prevOk=(m!=null);
+  });
+  const bodyEnd=rr;
+  for(let k=bodyStart;k<=bodyEnd;k++){ const row=ws.getRow(k); row.height=21;
+    for(let col=1;col<=5;col++){ const cell=row.getCell(col);
+      cell.border=border;
+      cell.font=cell.font&&cell.font.italic?cell.font:font();
+      cell.alignment={horizontal:col===2?'left':'center',vertical:'middle'};
+      if(col===3) cell.numFmt='0.00';
+      if(col===4) cell.numFmt='0.0%';
+      if(col===5) cell.numFmt='#,##0.00#';
+      if((k-bodyStart)%2===1) cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:band}}; } }
+
+  const total=(label,mergeTo,valCol,val,fmt)=>{
+    rr++; const row=ws.getRow(rr); row.height=24;
+    ws.mergeCells(`A${rr}:${mergeTo}${rr}`);
+    row.getCell(1).value=label; row.getCell(1).alignment={horizontal:'right',vertical:'middle'};
+    row.getCell(valCol).value=val; row.getCell(valCol).numFmt=fmt;
+    row.getCell(valCol).alignment={horizontal:'center',vertical:'middle'};
+    for(let col=1;col<=5;col++){ const cell=row.getCell(col);
+      cell.font=font({bold:true,color:{argb:navy}});
+      cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:soft}};
+      cell.border={top:thin,bottom:thin,left:thin,right:thin}; } };
+  const last=state.steps[n-1];
+  total(`Overall yield (${n} steps)`,'C',4,{formula:`PRODUCT(D${smR+1}:D${bodyEnd})`,result:c.overall/100},'0.0%');
+  const lastOk=c.finalMass!=null;
+  total(`Final mass: ${last.name}`,'D',5,lastOk?(prevOkFormula()?{formula:`E${lastMain}`,result:c.finalMass}:c.finalMass):'–','#,##0.00#');
+  function prevOkFormula(){ return typeof ws.getRow(lastMain).getCell(5).value==='object'; }
+  total('Theoretical mass (100% yield)','D',5,
+    c.theo!=null&&smOk&&last.mw>0?{formula:`E${smR}/C${smR}*C${lastMain}`,result:c.theo}:'–','#,##0.00#');
+  ws.pageSetup={orientation:'portrait',fitToPage:true,fitToWidth:1,fitToHeight:0};
+  const buf=await wb.xlsx.writeBuffer();
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
+  a.download=safeName()+'.xlsx'; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+});
+
+function init(){ $('#title').value=state.title; $('#nsteps').value=state.steps.length; buildRows(); }
+init();
+})();
+</script>
+</body>
+</html>
